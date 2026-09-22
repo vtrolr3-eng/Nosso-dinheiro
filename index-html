@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nosso Dinheiro ❤️</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:#fff7fa;
+  color:#333;
+}
+
+.container{
+  max-width:900px;
+  margin:auto;
+  padding:20px;
+}
+
+.card{
+  background:white;
+  border-radius:20px;
+  padding:20px;
+  margin-bottom:16px;
+  box-shadow:0 4px 15px rgba(0,0,0,.08);
+}
+
+h1{
+  color:#b84d78;
+  margin-top:0;
+}
+
+input,select,button{
+  width:100%;
+  padding:13px;
+  margin:6px 0;
+  border-radius:12px;
+  border:1px solid #ddd;
+  font-size:16px;
+}
+
+button{
+  background:#b84d78;
+  color:white;
+  border:0;
+  font-weight:bold;
+}
+
+button.secondary{
+  background:#eee;
+  color:#444;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:10px;
+}
+
+.hidden{
+  display:none;
+}
+
+.stat{
+  padding:15px;
+  border-radius:15px;
+  background:#fff0f5;
+}
+
+.stat strong{
+  display:block;
+  font-size:22px;
+  margin-top:5px;
+}
+
+.green{color:#23864b}
+.red{color:#b33}
+
+.small{
+  color:#777;
+  font-size:14px;
+}
+
+.message{
+  padding:10px;
+  margin-top:8px;
+  background:#fff0f5;
+  border-radius:10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<!-- LOGIN -->
+<div class="card" id="loginBox">
+
+<h1>Nosso Dinheiro ❤️</h1>
+
+<p class="small">
+Finanças do casal, sincronizadas pela internet.
+</p>
+
+<input id="email" type="email" placeholder="E-mail">
+
+<input id="password" type="password" placeholder="Senha">
+
+<button onclick="login()">Entrar</button>
+
+<button class="secondary" onclick="createAccount()">
+Criar conta
+</button>
+
+<div id="loginMessage" class="message hidden"></div>
+
+</div>
+
+
+<!-- APLICATIVO -->
+<div id="app" class="hidden">
+
+<div class="card">
+
+<div style="display:flex;justify-content:space-between;align-items:center">
+
+<div>
+<h1>Nosso Dinheiro ❤️</h1>
+<div id="userEmail" class="small"></div>
+</div>
+
+<button onclick="logout()" style="width:auto">
+Sair
+</button>
+
+</div>
+
+</div>
+
+
+<!-- GRUPO -->
+<div class="card">
+
+<h2>Nosso grupo</h2>
+
+<div id="groupInfo" class="small">
+Você ainda não está em um grupo.
+</div>
+
+<hr>
+
+<h3>Criar grupo</h3>
+
+<input
+id="groupName"
+value="Nossa Família ❤️"
+placeholder="Nome do grupo"
+>
+
+<button onclick="createGroup()">
+Criar grupo
+</button>
+
+<hr>
+
+<h3>Entrar com código de convite</h3>
+
+<input
+id="inviteCode"
+placeholder="Código de convite"
+>
+
+<button onclick="joinGroup()">
+Entrar no grupo
+</button>
+
+<div id="groupMessage" class="message hidden"></div>
+
+</div>
+
+
+<!-- FINANÇAS -->
+<div id="finance" class="hidden">
+
+<div class="grid">
+
+<div class="stat">
+Entradas
+<strong class="green" id="totalIncome">
+R$ 0,00
+</strong>
+</div>
+
+<div class="stat">
+Gastos
+<strong class="red" id="totalExpense">
+R$ 0,00
+</strong>
+</div>
+
+<div class="stat">
+Saldo
+<strong id="balance">
+R$ 0,00
+</strong>
+</div>
+
+</div>
+
+
+<!-- NOVO LANÇAMENTO -->
+<div class="card">
+
+<h2>Novo lançamento</h2>
+
+<input
+id="description"
+placeholder="Ex.: Mercado"
+>
+
+<input
+id="amount"
+type="number"
+step="0.01"
+placeholder="Valor"
+>
+
+<select id="type">
+
+<option value="expense">
+Gasto
+</option>
+
+<option value="income">
+Entrada
+</option>
+
+</select>
+
+<input
+id="category"
+placeholder="Categoria"
+>
+
+<input
+id="date"
+type="date"
+>
+
+<button onclick="addTransaction()">
+Adicionar lançamento
+</button>
+
+<div id="transactionMessage" class="message hidden"></div>
+
+</div>
+
+
+<!-- HISTÓRICO -->
+<div class="card">
+
+<h2>Histórico</h2>
+
+<div id="history">
+Nenhum lançamento.
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+
+<script>
+
+const SUPABASE_URL =
+"https://vgfhespfwckcqrrhsnkg.supabase.co";
+
+const SUPABASE_KEY =
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZnZmhlc3Bmd2NrY3FycmhzbmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwMzMyMjMsImV4cCI6MjEwNTYwOTIyM30.vzHnMmmGq0UR4X21HgjhliYExut7Noy8pZk8lIcQ3IE;
+
+const db =
+supabase.createClient(
+SUPABASE_URL,
+SUPABASE_KEY
+);
+
+
+let currentGroup =
+localStorage.getItem("nosso_dinheiro_group");
+
+
+function showMessage(id,text){
+
+const element =
+document.getElementById(id);
+
+element.textContent = text;
+
+element.classList.remove("hidden");
+
+}
+
+
+function money(value){
+
+return Number(value || 0)
+.toLocaleString("pt-BR",{
+style:"currency",
+currency:"BRL"
+});
+
+}
+
+
+async function createAccount(){
+
+const email =
+document.getElementById("email").value.trim();
+
+const password =
+document.getElementById("password").value;
+
+if(!email || !password){
+
+showMessage(
+"loginMessage",
+"Digite seu e-mail e uma senha."
+);
+
+return;
+
+}
+
+
+const {error} =
+await db.auth.signUp({
+email,
+password
+});
+
+
+if(error){
+
+showMessage(
+"loginMessage",
+error.message
+);
+
+}else{
+
+showMessage(
+"loginMessage",
+"Conta criada! Se aparecer confirmação de e-mail, confirme e depois entre."
+);
+
+}
+
+}
+
+
+async function login(){
+
+const email =
+document.getElementById("email").value.trim();
+
+const password =
+document.getElementById("password").value;
+
+
+const {error} =
+await db.auth.signInWithPassword({
+email,
+password
+});
+
+
+if(error){
+
+showMessage(
+"loginMessage",
+error.message
+);
+
+return;
+
+}
+
+
+await startApp();
+
+}
+
+
+async function logout(){
+
+await db.auth.signOut();
+
+localStorage.removeItem(
+"nosso_dinheiro_group"
+);
+
+location.reload();
+
+}
+
+
+async function startApp(){
+
+const {
+data:{user}
+} = await db.auth.getUser();
+
+
+if(!user) return;
+
+
+document
+.getElementById("loginBox")
+.classList.add("hidden");
+
+
+document
+.getElementById("app")
+.classList.remove("hidden");
+
+
+document
+.getElementById("userEmail")
+.textContent =
+user.email;
+
+
+document
+.getElementById("date")
+.value =
+new Date()
+.toISOString()
+.slice(0,10);
+
+
+await loadGroup();
+
+}
+
+
+function generateCode(){
+
+return Math
+.random()
+.toString(36)
+.substring(2,8)
+.toUpperCase();
+
+}
+
+
+async function createGroup(){
+
+const {
+data:{user}
+} = await db.auth.getUser();
+
+
+const name =
+document
+.getElementById("groupName")
+.value
+.trim()
+|| "Nossa Família ❤️";
+
+
+const inviteCode =
+generateCode();
+
+
+const {
+data,
+error
+} =
+await db
+.from("groups")
+.insert({
+name:name,
+invite_code:inviteCode
+})
+.select()
+.single();
+
+
+if(error){
+
+showMessage(
+"groupMessage",
+error.message
+);
+
+return;
+
+}
+
+
+await db
+.from("members")
+.insert({
+group_id:data.id,
+name:user.email.split("@")[0],
+email:user.email
+});
+
+
+currentGroup =
+data.id;
+
+
+localStorage.setItem(
+"nosso_dinheiro_group",
+currentGroup
+);
+
+
+showGroup(data);
+
+}
+
+
+async function joinGroup(){
+
+const {
+data:{user}
+} = await db.auth.getUser();
+
+
+const code =
+document
+.getElementById("inviteCode")
+.value
+.trim()
+.toUpperCase();
+
+
+const {
+data,
+error
+} =
+await db
+.from("groups")
+.select("*")
+.eq("invite_code",code)
+.single();
+
+
+if(error || !data){
+
+showMessage(
+"groupMessage",
+"Código de convite não encontrado."
+);
+
+return;
+
+}
+
+
+await db
+.from("members")
+.insert({
+group_id:data.id,
+name:user.email.split("@")[0],
+email:user.email
+});
+
+
+currentGroup =
+data.id;
+
+
+localStorage.setItem(
+"nosso_dinheiro_group",
+currentGroup
+);
+
+
+showGroup(data);
+
+}
+
+
+function showGroup(group){
+
+document
+.getElementById("groupInfo")
+.innerHTML =
+
+"<b>"+group.name+"</b><br>" +
+
+"💌 Código de convite: <strong>" +
+group.invite_code +
+"</strong>";
+
+
+document
+.getElementById("finance")
+.classList
+.remove("hidden");
+
+
+loadTransactions();
+
+}
+
+
+async function loadGroup(){
+
+if(!currentGroup) return;
+
+
+const {
+data,
+error
+} =
+await db
+.from("groups")
+.select("*")
+.eq("id",currentGroup)
+.single();
+
+
+if(error || !data){
+
+localStorage.removeItem(
+"nosso_dinheiro_group"
+);
+
+currentGroup=null;
+
+return;
+
+}
+
+
+showGroup(data);
+
+}
+
+
+async function addTransaction(){
+
+if(!currentGroup){
+
+showMessage(
+"transactionMessage",
+"Crie ou entre em um grupo primeiro."
+);
+
+return;
+
+}
+
+
+const description =
+document
+.getElementById("description")
+.value
+.trim();
+
+
+const amount =
+Number(
+document
+.getElementById("amount")
+.value
+);
+
+
+const type =
+document
+.getElementById("type")
+.value;
+
+
+const category =
+document
+.getElementById("category")
+.value
+.trim();
+
+
+const date =
+document
+.getElementById("date")
+.value;
+
+
+if(!description || !amount){
+
+showMessage(
+"transactionMessage",
+"Informe a descrição e o valor."
+);
+
+return;
+
+}
+
+
+const {error} =
+await db
+.from("transactions")
+.insert({
+
+group_id:currentGroup,
+
+description:description,
+
+amount:amount,
+
+type:type,
+
+category:category || null,
+
+date:date || new Date()
+.toISOString()
+.slice(0,10)
+
+});
+
+
+if(error){
+
+showMessage(
+"transactionMessage",
+error.message
+);
+
+return;
+
+}
+
+
+document
+.getElementById("description")
+.value="";
+
+document
+.getElementById("amount")
+.value="";
+
+document
+.getElementById("category")
+.value="";
+
+
+loadTransactions();
+
+}
+
+
+async function loadTransactions(){
+
+if(!currentGroup) return;
+
+
+const {
+data,
+error
+} =
+await db
+.from("transactions")
+.select("*")
+.eq("group_id",currentGroup)
+.order("date",{ascending:false});
+
+
+if(error){
+
+document
+.getElementById("history")
+.textContent =
+error.message;
+
+return;
+
+}
+
+
+let income=0;
+let expense=0;
+
+
+const history =
+document.getElementById("history");
+
+
+history.innerHTML="";
+
+
+if(data.length===0){
+
+history.innerHTML =
+'<div class="small">Nenhum lançamento ainda.</div>';
+
+}
+
+
+data.forEach(item=>{
+
+if(item.type==="income"){
+
+income += Number(item.amount);
+
+}else{
+
+expense += Number(item.amount);
+
+}
+
+
+const div =
+document.createElement("div");
+
+
+div.className="card";
+
+
+div.style.boxShadow="none";
+
+div.style.border="1px solid #eee";
+
+
+div.innerHTML =
+
+"<b>"+item.description+"</b>" +
+
+'<div class="small">' +
+
+item.date +
+
+(item.category
+?
+" • "+item.category
+:
+"") +
+
+"</div>" +
+
+'<strong class="' +
+
+(item.type==="income"
+?
+"green"
+:
+"red") +
+
+'">' +
+
+(item.type==="income"
+?
+"+ "
+:
+"- ") +
+
+money(item.amount) +
+
+"</strong>";
+
+
+history.appendChild(div);
+
+});
+
+
+document
+.getElementById("totalIncome")
+.textContent =
+money(income);
+
+
+document
+.getElementById("totalExpense")
+.textContent =
+money(expense);
+
+
+document
+.getElementById("balance")
+.textContent =
+money(income-expense);
+
+}
+
+
+db.auth.onAuthStateChange(
+(event,session)=>{
+
+if(session){
+
+startApp();
+
+}
+
+});
+
+
+startApp();
+
+</script>
+
+</body>
+</html>
